@@ -1,0 +1,29 @@
+lake_root: "./lake" # swap to s3://my-bucket/lake later
+default_partition: "ingest_date"
+
+sources:
+  - name: github-issues
+    kind: http.github
+    options:
+      owner: "pallets"
+      repo: "flask"
+      per_page: 100
+      initial_since_days: 90 # look back 30 days on first run
+    checkpoint_key: "updated_at"
+    destination: "bronze/github/issues" #stored in lake_root/bronze/github/issues(lake is automatically created if it doesn't exist)
+
+  - name: github-issues-vscode
+    kind: http.github
+    options:
+      owner: "microsoft"
+      repo: "vscode"
+      per_page: 100
+      initial_since_days: 90
+    checkpoint_key: "updated_at"
+    destination: "bronze/github/issues_vscode"
+
+  - name: local-sales-csv
+    kind: file.csv
+    options:
+      path: "./samples/sales_*.csv"
+    destination: "bronze/sales/raw"

@@ -1,0 +1,5 @@
+pydantic>=2
+pandas>=2
+pyarrow>=16
+requests>=2
+python-dotenv>=1
