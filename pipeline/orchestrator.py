@@ -8,6 +8,7 @@ from pipeline.state import get_checkpoint, set_checkpoint
 from pipeline.validators.schema import validate, ValidationError
 from pipeline.transformers.basic_clean import clean_record
 from pipeline.loaders.parquet_local import write_parquet
+from pipeline.silver.github_issues import build_github_silver
 
 log = get_logger()
 
@@ -33,7 +34,7 @@ def _load_cfg():
     with open(cfg_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     log.info(f"loaded configuration from {cfg_path}")
-    return cfg
+    return cfg, cfg_path
 
 def _import_extractor(kind: str):
     if kind == "http.github": 
@@ -45,8 +46,9 @@ def _import_extractor(kind: str):
     return extract
 
 def run():
-    cfg = _load_cfg()
+    cfg, cfg_path = _load_cfg()
     lake_root = cfg["lake_root"]
+    github_sources = [s for s in cfg["sources"] if s["kind"] == "http.github"]
     for s in cfg["sources"]:
         name, kind = s["name"], s["kind"]
         log.info(f"=== Source: {name} ({kind}) ===")
@@ -112,6 +114,21 @@ def run():
         log.info(
             f"SUMMARY[{status.upper()}]: seen={rows} bad={bad} checkpoint_before={checkpoint_before} checkpoint_after={max_checkpoint}"
         )
+
+    if github_sources:
+        try:
+            meta = build_github_silver(github_sources, lake_root, cfg, cfg_path)
+            if meta:
+                log.info(
+                    "github silver build completed rows=%s train=%s val=%s test=%s duplicates_removed=%s",
+                    meta.get("total_rows"),
+                    meta.get("split_rows", {}).get("train", 0),
+                    meta.get("split_rows", {}).get("val", 0),
+                    meta.get("split_rows", {}).get("test", 0),
+                    meta.get("duplicates_removed"),
+                )
+        except Exception as exc:
+            log.error("failed to build github silver layer: %s", exc, exc_info=True)
 
 if __name__ == "__main__":
     run()

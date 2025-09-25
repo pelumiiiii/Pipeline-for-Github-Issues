@@ -58,9 +58,10 @@ Pipeline(ML*)/
 4. Register the extractor in `pipeline/orchestrator.py::_import_extractor` if it uses a new `kind`.
 5. Add the configuration block to `pipeline/config.yaml` with a unique `name` and `destination`.
 
-## Samples & Lake Output
+-## Samples & Lake Output
 - Raw API snapshots are written to `samples/github_issues_page_*.json` for debugging or demos.
 - Normalized records land under `lake/bronze/<namespace>` as partitioned Parquet files (default partition key `ingest_date`).
+- Silver layer lives under `lake/silver/github/issues`. Each run produces a timestamped snapshot (`run_ts=...`) plus a `latest/` pointer containing time-split datasets (`split=train|val|test`) and `_meta.json` with reproducibility metadata, quality metrics, and feature config hashes.
 
 ## Development & Testing
 - Install dev tooling with `pip install -e '.[dev]'` so `pytest` and other extras are available.
@@ -68,14 +69,16 @@ Pipeline(ML*)/
 - Keep linting/formatting consistent; tools such as `ruff` or `black` can be added via pre-commit hooks.
 - When updating schemas or config, ensure checkpoints (`pipeline_state.db`) are reset if you need a clean replay.
 
-### Logging configuration
+### Logging & Observability
 - Logs default to stdout with the format `timestamp | level | message`.
+- Silver builder emits summary metrics (row counts, duplicates removed) and records quality metadata in `_meta.json`.
 - For persistent logs, redirect stdout/stderr or extend `pipeline/logging.py` with additional handlers.
 
 ## Operational Notes
-- The GitHub extractor now includes retry/backoff and rate-limit handling; tune `max_attempts`, `backoff_seconds`, and `request_timeout` per source in `config.yaml` if needed.
+- The GitHub extractor includes retry/backoff and rate-limit handling; tune `max_attempts`, `backoff_seconds`, and `request_timeout` per source in `config.yaml` if needed.
 - The API still exposes only the first 1,000 results per query; a 422 response stops pagination gracefully once that ceiling is reached.
 - Checkpoints are stored per-source; delete the relevant row from `pipeline_state.db` to reprocess from scratch.
+- Silver metadata (`_meta.json`) captures feature config, split sizes, missing-value ratios, and commit hash for reproducibility.
 
 ## Contributing
 1. Fork or branch from `main`.

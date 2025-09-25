@@ -1,0 +1,63 @@
+{
+  "generated_at": "2025-09-25T20:16:05.017564+00:00",
+  "data_cutoff": "2025-09-25T20:16:04.292549+00:00",
+  "total_rows": 20,
+  "feature_columns": [
+    "title_length",
+    "title_word_count",
+    "issue_age_days",
+    "time_since_update_days",
+    "is_recent_update",
+    "is_weekend_created",
+    "repo_issue_count_30d",
+    "repo_issue_count_90d",
+    "user_issue_count_30d",
+    "user_issue_count_90d",
+    "title_has_bug",
+    "title_has_error"
+  ],
+  "label_column": "priority_label",
+  "commit": "b777d309a861888049b0a5bed76d0498f9e22fc4",
+  "config_hash": "27c4b9d908ebe382adad47106e95d79dfa896ba432cf630c088f9f90836c8c4c",
+  "source_destinations": [
+    "bronze/github/issues",
+    "bronze/github/issues_vscode"
+  ],
+  "quality": {
+    "rows_raw": 36,
+    "rows_after_dedupe": 24,
+    "rows_current_open": 20,
+    "duplicates_removed": 12,
+    "split_rows": {
+      "train": 14,
+      "val": 3,
+      "test": 3
+    },
+    "missing_pct": {
+      "id": 0.0,
+      "repo_owner": 0.0,
+      "repo_name": 0.0,
+      "number": 0.0,
+      "state": 0.0,
+      "user_login": 0.0,
+      "created_at": 0.0,
+      "updated_at": 0.0,
+      "ingest_ts": 0.0,
+      "priority_label": 0.0,
+      "title_length": 0.0,
+      "title_word_count": 0.0,
+      "issue_age_days": 0.0,
+      "time_since_update_days": 0.0,
+      "is_recent_update": 0.0,
+      "is_weekend_created": 0.0,
+      "repo_issue_count_30d": 0.0,
+      "repo_issue_count_90d": 0.0,
+      "user_issue_count_30d": 0.0,
+      "user_issue_count_90d": 0.0,
+      "title_has_bug": 0.0,
+      "title_has_error": 0.0
+    }
+  },
+  "run_directory": "silver/github/issues/run_ts=20250925T201604",
+  "feature_version": "v1.1"
+}

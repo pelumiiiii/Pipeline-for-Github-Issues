@@ -117,7 +117,9 @@ def extract(options: dict, source_name: str):
               "id": it["id"], "number": it["number"], "title": it["title"],
               "state": it["state"], "user.login": it["user"]["login"],
               "comments": it["comments"], "created_at": it["created_at"],
-              "updated_at": it["updated_at"], "closed_at": it.get("closed_at")
+              "updated_at": it["updated_at"], "closed_at": it.get("closed_at"),
+              "repo_owner": owner,
+              "repo_name": repo,
             }
             yield out
         page += 1
