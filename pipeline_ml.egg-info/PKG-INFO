@@ -1,3 +1,21 @@
+Metadata-Version: 2.4
+Name: pipeline-ml
+Version: 0.2.0
+Summary: Configurable ingestion pipeline for GitHub and local data sources
+Author: Pipeline Maintainers
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pydantic>=2
+Requires-Dist: pandas>=2
+Requires-Dist: pyarrow>=16
+Requires-Dist: requests>=2
+Requires-Dist: python-dotenv>=1
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"
+Dynamic: license-file
+
 # Pipeline(ML*)
 
 Robust yet lightweight data-ingestion pipeline that pulls operational data from GitHub and local CSV sources, validates each record, and writes columnar outputs to a lake-style filesystem layout. The project is built in Python to showcase incremental ingestion, schema enforcement, and modular extract/transform/load (ETL) patterns.
@@ -35,7 +53,7 @@ Pipeline(ML*)/
    ```
 2. **Install dependencies**
    ```bash
-   pip install -e '.[dev]'
+   pip install -e .[dev]
    # or: pip install -r requirements.txt
    ```
 3. **(Optional) Configure credentials**
@@ -47,9 +65,15 @@ Pipeline(ML*)/
 5. **Run the orchestrator**
    ```bash
    python -m pipeline
-   # once installed: pipeline --env staging run
+   # or use the CLI entry point once installed:
+   pipeline --env staging run
    ```
    Logs stream to stdout. Summaries include counts of processed records and checkpoint details.
+
+### Configuration overrides
+- Set `PIPELINE_CONFIG_PATH` to point at a custom YAML file, or supply `--config path.yaml` on the CLI.
+- Set `PIPELINE_ENV` (or pass `--env`) to auto-resolve `pipeline/config.<env>.yaml` if present.
+- Secrets and tokens should be provided via environment variables (e.g. using a `.env` file with `python-dotenv`).
 
 ## Adding New Sources
 1. Implement an extractor in `pipeline/extractors/` that yields dictionaries.
@@ -63,25 +87,26 @@ Pipeline(ML*)/
 - Normalized records land under `lake/bronze/<namespace>` as partitioned Parquet files (default partition key `ingest_date`).
 
 ## Development & Testing
-- Install dev tooling with `pip install -e '.[dev]'` so `pytest` and other extras are available.
+- Install dev tooling with `pip install -e .[dev]` so `pytest` and other extras are available.
 - Run `pytest` from the project root to validate transformations and extractors.
 - Keep linting/formatting consistent; tools such as `ruff` or `black` can be added via pre-commit hooks.
 - When updating schemas or config, ensure checkpoints (`pipeline_state.db`) are reset if you need a clean replay.
 
-### Logging configuration
-- Logs default to stdout with the format `timestamp | level | message`.
-- For persistent logs, redirect stdout/stderr or extend `pipeline/logging.py` with additional handlers.
-
 ## Operational Notes
-- The GitHub extractor now includes retry/backoff and rate-limit handling; tune `max_attempts`, `backoff_seconds`, and `request_timeout` per source in `config.yaml` if needed.
-- The API still exposes only the first 1,000 results per query; a 422 response stops pagination gracefully once that ceiling is reached.
+- The GitHub API exposes only the first 1,000 results per query; the extractor handles 422 responses gracefully and stops at the limit.
 - Checkpoints are stored per-source; delete the relevant row from `pipeline_state.db` to reprocess from scratch.
+- For production, consider adding retry/backoff logic, observability metrics, and CI pipelines before deployment.
 
 ## Contributing
-1. Fork or branch from `main`.
+1. Fork or branch from `main` (see `CONTRIBUTING.md`).
 2. Make your changes and add tests where practical.
 3. Run the pipeline and ensure outputs remain consistent.
 4. Submit a pull request describing the change, expected impact, and validation steps.
+
+Additional references:
+- `docs/data_contracts.md` documents published schemas and quality guarantees.
+- `LICENSE` covers usage rights (MIT).
+- `.env.example` lists helpful environment variables for local development.
 
 ## License
 Clarify licensing before distribution. Add a LICENSE file if the project is shared outside your organization.

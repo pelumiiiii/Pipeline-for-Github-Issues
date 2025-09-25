@@ -1,5 +1,8 @@
-import yaml, os
+import os
 from datetime import datetime, timezone
+from pathlib import Path
+
+import yaml
 from pipeline.logging import get_logger
 from pipeline.state import get_checkpoint, set_checkpoint
 from pipeline.validators.schema import validate, ValidationError
@@ -8,9 +11,29 @@ from pipeline.loaders.parquet_local import write_parquet
 
 log = get_logger()
 
+def _resolve_config_path() -> Path:
+    env_path = os.getenv("PIPELINE_CONFIG_PATH")
+    if env_path:
+        cfg_path = Path(env_path)
+        if not cfg_path.exists():
+            raise FileNotFoundError(f"PIPELINE_CONFIG_PATH={env_path} does not exist")
+        return cfg_path
+
+    base_path = Path(__file__).resolve().with_name("config.yaml")
+    env_name = os.getenv("PIPELINE_ENV")
+    if env_name:
+        candidate = base_path.with_name(f"config.{env_name}.yaml")
+        if candidate.exists():
+            return candidate
+    return base_path
+
+
 def _load_cfg():
-    with open(os.path.join(os.path.dirname(__file__), "config.yaml")) as f:
-        return yaml.safe_load(f)
+    cfg_path = _resolve_config_path()
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+    log.info(f"loaded configuration from {cfg_path}")
+    return cfg
 
 def _import_extractor(kind: str):
     if kind == "http.github": 
@@ -31,41 +54,64 @@ def run():
         checkpoint_before = get_checkpoint(name)
         rows, bad, good = 0, 0, []
         max_checkpoint = checkpoint_before
-        for rec in extract(s.get("options", {}), name):
-            rows += 1
-            rec = clean_record(rec)
+        source_failed = False
+        try:
+            for rec in extract(s.get("options", {}), name):
+                rows += 1
+                rec = clean_record(rec)
 
-            # CHANGED: validate returns a dict or raises
-            try:
-                val = validate(name, rec)
-            except ValidationError as e:
-                bad += 1
-                log.warning(f"validation failed: {e}")
-                continue
+                try:
+                    val = validate(name, rec)
+                except ValidationError as e:
+                    bad += 1
+                    log.warning(f"validation failed: {e}")
+                    continue
 
-            val["ingest_ts"] = datetime.now(timezone.utc).isoformat()
-            
-            # track max incremental cursor if configured
-            ck = s.get("checkpoint_key")
-            if ck and ck in val:
-                mc = val[ck]  # ISO string now
-                max_checkpoint = mc if not max_checkpoint or mc > max_checkpoint else max_checkpoint
+                val["ingest_ts"] = datetime.now(timezone.utc).isoformat()
 
-            # Write in micro-batches to avoid huge memory for big pulls
-            if len(good) >= 5000:
-                n, parts = write_parquet(good, cfg["lake_root"], s["destination"], cfg.get("default_partition","ingest_date"))
-                log.info(f"wrote {n} rows to {s['destination']} partitions={parts}")
-                good.clear()
+                ck = s.get("checkpoint_key")
+                if ck and ck in val:
+                    mc = val[ck]
+                    max_checkpoint = mc if not max_checkpoint or mc > max_checkpoint else max_checkpoint
 
-        # flush remainder
-        if good:
-            n, parts = write_parquet(good, cfg["lake_root"], s["destination"], cfg.get("default_partition","ingest_date"))
+                good.append(val)
+
+                if len(good) >= 5000:
+                    n, parts = write_parquet(
+                        good,
+                        lake_root,
+                        s["destination"],
+                        cfg.get("default_partition", "ingest_date"),
+                    )
+                    log.info(f"wrote {n} rows to {s['destination']} partitions={parts}")
+                    good.clear()
+        except Exception as exc:
+            source_failed = True
+            log.error(
+                "source %s encountered an error after %s rows: %s",
+                name,
+                rows,
+                exc,
+                exc_info=True,
+            )
+
+        if good and not source_failed:
+            n, parts = write_parquet(
+                good,
+                lake_root,
+                s["destination"],
+                cfg.get("default_partition", "ingest_date"),
+            )
             log.info(f"wrote {n} rows to {s['destination']} partitions={parts}")
+        elif good and source_failed:
+            log.warning(f"discarding {len(good)} buffered rows for {name} due to earlier failure")
 
-        # update checkpoint *only if* extractor ran successfully
-        if s.get("checkpoint_key") and max_checkpoint:
+        if not source_failed and s.get("checkpoint_key") and max_checkpoint:
             set_checkpoint(name, max_checkpoint, {"rows_seen": rows, "bad": bad})
-        log.info(f"SUMMARY: seen={rows} bad={bad} checkpoint_before={checkpoint_before} checkpoint_after={max_checkpoint}")
+        status = "failed" if source_failed else "completed"
+        log.info(
+            f"SUMMARY[{status.upper()}]: seen={rows} bad={bad} checkpoint_before={checkpoint_before} checkpoint_after={max_checkpoint}"
+        )
 
 if __name__ == "__main__":
     run()

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipeline-ml"
+version = "0.2.0"
+description = "Configurable ingestion pipeline for GitHub and local data sources"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Pipeline Maintainers"}]
+dependencies = [
+    "pydantic>=2",
+    "pandas>=2",
+    "pyarrow>=16",
+    "requests>=2",
+    "python-dotenv>=1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+pipeline = "pipeline.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pipeline*"]
